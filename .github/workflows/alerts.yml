@@ -1,0 +1,43 @@
+name: alerts
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: alerts
+  cancel-in-progress: false
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Load dedupe state from alerts-state branch
+        run: |
+          if git fetch --depth=1 origin alerts-state 2>/dev/null; then git show origin/alerts-state:state.json > /tmp/state.json || echo '{}' > /tmp/state.json; else echo '{}' > /tmp/state.json; fi
+          sha256sum /tmp/state.json | cut -d' ' -f1 > /tmp/state.before
+      - name: Scan and alert (keyless APIs, ntfy push)
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          STATE_FILE: /tmp/state.json
+          SITE_URL: https://ajaynallavelli.github.io/sol-desk-terminal/
+        run: node alerts/run.mjs
+      - name: Save dedupe state (only when alerts changed)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node -e "const s=require('/tmp/state.json'); delete s.lastRun; delete s.lastSent; require('fs').writeFileSync('/tmp/state.cmp', JSON.stringify(s))"
+          git show origin/alerts-state:state.json 2>/dev/null | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{let s={};try{s=JSON.parse(d)}catch{};delete s.lastRun;delete s.lastSent;process.stdout.write(JSON.stringify(s))})" > /tmp/state.old || true
+          if cmp -s /tmp/state.cmp /tmp/state.old; then echo "state unchanged"; exit 0; fi
+          rm -rf /tmp/st && mkdir /tmp/st && cd /tmp/st && git init -q -b alerts-state
+          cp /tmp/state.json state.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add state.json && git commit -qm "alert state $(date -u +%FT%TZ)"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" alerts-state

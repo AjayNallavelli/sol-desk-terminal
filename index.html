@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sol Desk Terminal - research only</title>
+<meta name="description" content="Research-only Solana meme-coin terminal. No wallet connect. Not financial advice.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src * data:; connect-src https://api.dexscreener.com https://api.geckoterminal.com https://api.rugcheck.xyz https://api.gopluslabs.io https://lite-api.jup.ag https://api.mainnet-beta.solana.com https://www.stonkfun.xyz; frame-src https://dexscreener.com; media-src data:">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%2322c55e%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head><body>
+<div class="banner"><b>RESEARCH ONLY - NOT FINANCIAL ADVICE.</b> This page never connects a wallet, never signs, never swaps. "Open on Jupiter" just opens jup.ag in a new tab. Live trades go through Cryptotrader only after <b>LIVE TRADE APPROVED</b>. Paper first. Missing data shows <span class="uv">UNVERIFIED</span>, never a guess. A score is a ranking, not a chance of profit.</div>
+<header>
+  <div class="logo">SOL<span>DESK</span></div>
+  <nav id="nav">
+    <a href="#pulse" data-p="pulse">Pulse <span class="kbd">1</span></a>
+    <a href="#stonk" data-p="stonk">stonk.fun <span class="kbd">2</span></a>
+    <a href="#coin" data-p="coin">Coin <span class="kbd">3</span></a>
+    <a href="#watch" data-p="watch">Watch / Two-look <span class="kbd">4</span></a>
+    <a href="#paper" data-p="paper">Paper <span class="kbd">5</span></a>
+    <a href="#playbook" data-p="playbook">Playbook <span class="kbd">6</span></a>
+    <a href="#settings" data-p="settings">Settings <span class="kbd">7</span></a>
+  </nav>
+  <input id="ca" placeholder="Paste a mint / CA and press Enter  ( / to focus, Ctrl+V anywhere )" autocomplete="off" spellcheck="false">
+  <button id="go" class="pri">Look up</button>
+</header>
+<main>
+<section class="page" id="p-pulse">
+  <div class="bar">
+    <label>Preset <select id="preset"><option value="band">Desk band $10-20k</option><option value="fresh">Fresh &lt;30m</option><option value="demand">Demand leaders</option><option value="all">Show all</option></select></label>
+    <label>Mcap $ <input id="fMin" type="number" value="10000"> - <input id="fMax" type="number" value="20000"></label>
+    <label><input id="fAll" type="checkbox"> show all mcaps</label>
+    <label>Max age (min) <input id="fAge" type="number" placeholder="any"></label>
+    <label>Min liq $ <input id="fLiq" type="number" placeholder="0"></label>
+    <label>Min buys 5m <input id="fBuys" type="number" placeholder="0"></label>
+    <label>Min holders <input id="fHold" type="number" placeholder="0"></label>
+    <label><input id="fSoc" type="checkbox"> socials present</label>
+    <label><input id="fHide" type="checkbox" checked> hide FAILs</label>
+    <label>Sort <select id="fSort"><option value="score">Early Runner score</option><option value="age">Newest</option><option value="mcap">Mcap</option><option value="buys">Buys 5m</option></select></label>
+    <button id="refresh" class="pri">Refresh <span class="kbd">R</span></button>
+    <label><input id="auto" type="checkbox"> auto 60s (visible tab only)</label>
+    <span id="pulseAt" class="mu"></span>
+  </div>
+  <div class="cols">
+    <div class="col"><h3>NEW PAIRS (on curve) <span id="cNew" class="mu"></span></h3><div class="list" id="lNew"></div></div>
+    <div class="col"><h3>NEAR GRADUATION <span id="cNear" class="mu"></span></h3><div class="list" id="lNear"></div></div>
+    <div class="col"><h3>GRADUATED / TRADING <span id="cGrad" class="mu"></span></h3><div class="list" id="lGrad"></div></div>
+  </div>
+  <div class="box" style="margin-top:8px"><h4>TOO LATE bucket (far past the band - do not add because the displayed value ran)</h4><div id="lLate" class="small"></div></div>
+  <p class="mu small">Pulse score = Early Runner score from aggregated data only (bundle / same-block / dev-sell checks need the coin page). Near-graduation uses curve % from Jupiter/GeckoTerminal when returned, otherwise mcap &ge; near-grad threshold (heuristic, see Settings). pump.fun's own API blocks browsers (CORS) so pump.fun curve fields not available elsewhere are UNVERIFIED.</p>
+</section>
+
+<section class="page" id="p-stonk">
+  <div class="bar">
+    <b>stonk.fun launches</b><span class="mu">(official keyless API www.stonkfun.xyz/api/public/v1 + Jupiter enrich)</span>
+    <button id="sRefresh" class="pri">Refresh</button>
+    <label><input id="sAlert" type="checkbox"> Pump alert (poll every <input id="sInt" type="number" value="45" min="30" style="width:50px">s)</label>
+    <label>5m &ge; <input id="tChg" type="number" value="25" style="width:50px">%</label>
+    <label>buys/sells &ge; <input id="tRatio" type="number" value="1.5" step="0.1" style="width:50px">x</label>
+    <label>min buys <input id="tBuys" type="number" value="10" style="width:50px"></label>
+    <label>min unique <input id="tUniq" type="number" value="8" style="width:50px"></label>
+    <label>min score <input id="tScore" type="number" value="45" style="width:50px"></label>
+    <button id="sTest">Test alert</button>
+    <span id="stonkAt" class="mu"></span>
+  </div>
+  <p class="mu small">Alerts fire only while this page is open (static site, no server). For phone alerts when the page is closed, use the ntfy alert feed (Settings). stonk.fun coins pair against many quote assets (xStocks, SHIB, baskets): mcap is in USD from stonk.fun's API.</p>
+  <div class="box"><table id="stonkT"><thead><tr><th>Coin</th><th>Quote</th><th>Status</th><th>Age</th><th>Mcap</th><th>Liq</th><th>5m</th><th>B/S 5m</th><th>Traders 5m</th><th>Fee</th><th>Score</th><th>Verdict</th><th>Pump?</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section class="page" id="p-coin"><div id="coinBody"><p class="mu">Paste a mint above (or click any coin). Example: <a href="#coin/So11111111111111111111111111111111111111112">wSOL</a></p></div></section>
+
+<section class="page" id="p-watch">
+  <div class="bar"><b>Watchlist + two-look watcher</b><span class="mu">Look 1 when pinned; look 2 is taken automatically 5-15 min later while this tab is open. Retention &ge;85% with buys leading = pass.</span>
+  <button id="wCheck" class="pri">Check now</button><button id="notif">Enable notifications</button><button id="wCharts">Load chart grid</button></div>
+  <div class="box"><table id="watchT"><thead><tr><th>Coin</th><th>Pinned (UTC)</th><th>Look 1</th><th>Look 2</th><th>Retention</th><th>Buys/Sells 5m</th><th>Status</th><th></th></tr></thead><tbody></tbody></table></div>
+  <div class="chartgrid" id="grid"></div>
+</section>
+
+<section class="page" id="p-paper">
+  <div class="box"><h4>PAPER TRADE JOURNAL (localStorage only, not real money)</h4>
+  <div id="riskNote" class="small"></div>
+  <div class="bar">
+    <input id="jMint" placeholder="mint" style="width:300px"><input id="jSym" placeholder="ticker" style="width:80px">
+    <label>entry $ <input id="jEntry" type="number" step="any" style="width:120px"></label>
+    <label>size SOL <input id="jSize" type="number" step="0.01" value="0.02" style="width:70px"></label>
+    <label>exp. slippage % <input id="jSlip" type="number" step="0.1" style="width:60px"></label>
+    <input id="jNote" placeholder="thesis / invalidation" style="width:240px">
+    <button id="jAdd" class="pri">Add paper entry</button>
+  </div>
+  <table id="paperT"><thead><tr><th>Opened (UTC)</th><th>Coin</th><th>Entry $</th><th>Size SOL</th><th>Exp slip</th><th>Exit $</th><th>P&amp;L SOL</th><th>P&amp;L %</th><th>Note</th><th></th></tr></thead><tbody></tbody></table>
+  <p class="mu small">P&amp;L subtracts the expected slippage on entry and exit (estimate). Desk risk: max 1 open position, stop after 2 losing trades in a day, tight slippage (wide slippage gets sandwiched on pump.fun).</p></div>
+</section>
+
+<section class="page play" id="p-playbook"></section>
+
+<section class="page" id="p-settings">
+  <div class="box"><h4>Rule thresholds (saved in this browser)</h4><div class="bar" id="cfgBar"></div></div>
+  <div class="box"><h4>Smart-money watch wallets (watch-only, UNVERIFIED, never decide a pass, never copy)</h4>
+    <textarea id="smw" rows="4" style="width:100%;background:var(--p2);color:var(--tx);border:1px solid var(--ln)"></textarea><button id="smwSave">Save</button></div>
+  <div class="box"><h4>Phone alerts via ntfy (works when this page is closed)</h4>
+    <div class="wrap" style="font:13px/1.5 system-ui">A free GitHub Actions job in this repo checks new stonk.fun and Solana pairs about every 5 minutes (GitHub can delay scheduled runs) with the same rug checks and pump rule, and pushes at most 12 alerts an hour to an ntfy topic.
+    <ol><li>Install the free <b>ntfy</b> app (Android / iOS) or open ntfy.sh in a browser.</li><li>Tap <b>+ Subscribe to topic</b>, server <code>ntfy.sh</code>, and enter the private topic name the desk gave you (it is deliberately not published here; anyone who knows it can read the alerts).</li><li>Each alert: ticker + mcap with UTC time, why it passed, the mint on its own line, and buttons for this terminal, DexScreener, RugCheck and Jupiter.</li></ol>
+    Alerts are research pings, not trade calls. GitHub disables scheduled workflows after 60 days of repo inactivity; re-enable in the Actions tab.</div></div>
+  <div class="box"><h4>Data sources (browser, keyless)</h4><div id="srcT" class="small"></div></div>
+  <div class="box"><h4>Keyboard</h4><div class="small">/ focus CA box &middot; Ctrl+V anywhere pastes a mint and opens it &middot; 1-7 tabs &middot; R refresh &middot; P pin current coin &middot; J paper entry for current coin &middot; Esc blur</div></div>
+</section>
+</main>
+<div class="status" id="status"></div>
+<div id="toast"></div>
+<script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js" crossorigin="anonymous"></script>
+<script src="rules.js"></script>
+<script src="app.js"></script>
+</body></html>
