@@ -26,7 +26,12 @@ const HOSTS = {
   'api.rugcheck.xyz': { gap: 1500, name: 'RugCheck' },
   'api.gopluslabs.io': { gap: 2500, name: 'GoPlus' },
   'api.mainnet-beta.solana.com': { gap: 1500, name: 'Solana RPC' },
-  'www.stonkfun.xyz': { gap: 1000, name: 'stonk.fun' }
+  'www.stonkfun.xyz': { gap: 1000, name: 'stonk.fun' },
+  'mainnet.helius-rpc.com': { gap: 300, name: 'Helius RPC (session key)' },
+  'api-mainnet.helius-rpc.com': { gap: 500, name: 'Helius API (session key)' },
+  'data.solanatracker.io': { gap: 1500, name: 'Solana Tracker (session key)' },
+  'public-api.birdeye.so': { gap: 1500, name: 'Birdeye (session key)' },
+  'api.jup.ag': { gap: 1200, name: 'Jupiter API (session key)' }
 };
 const SRC = {};
 const cache = new Map(), inflight = new Map(), chain = {};
@@ -249,7 +254,7 @@ function openCoin(mint) {
   const set = k => v => { if (CUR?.mint !== mint) return v; CUR.d[k] = v; renderCoin(); return v; };
   const fail = k => () => { if (CUR?.mint !== mint) return; CUR.d[k] = null; renderCoin(); };
   getJSON('https://api.dexscreener.com/tokens/v1/solana/' + M, 20000).then(set('ds'), fail('ds'));
-  getJSON('https://lite-api.jup.ag/tokens/v2/search?query=' + M, 20000).then(v => set('jup')((v || []).find(j => j.id === mint) || null), fail('jup'));
+  (typeof jupLookup === 'function' ? jupLookup(M) : getJSON('https://lite-api.jup.ag/tokens/v2/search?query=' + M, 20000)).then(v => set('jup')((v || []).find(j => j.id === mint) || null), fail('jup'));
   getJSON('https://api.rugcheck.xyz/v1/tokens/' + M + '/report', 60000).then(set('rc'), fail('rc'));
   getJSON('https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=' + M, 60000).then(v => set('gp')(v?.result?.[mint] || null), fail('gp'));
   getJSON('https://api.geckoterminal.com/api/v2/networks/solana/tokens/' + M + '/info', 60000).then(v => set('gti')(v?.data?.attributes || null), fail('gti'));
@@ -318,6 +323,8 @@ function buildCur() {
   // Bundle / one-buyer heuristics only mean something on young pools; on mature, busy pools (routers, arb bots) they misfire, so they stay UNVERIFIED there.
   const young = isNum(o.createdAt) && Date.now() - o.createdAt < 6 * 3600000;
   if (ta) { if (young) { o.sameBlockClusters = ta.clusters; o.topBuyerShare = ta.topBuyerShare; } else o.bundleNote = 'pool older than 6h: same-block / one-buyer heuristics not applied (UNVERIFIED)'; o.devSold = (o.dev || o.creator) ? ta.devSold : null; }
+  if (CUR.funder) { o.funderMaxGroup = CUR.funder.maxGroup; o.funderTraced = CUR.funder.traced; if (CUR.funder.maxGroup >= 3) o.linked = true; }
+  if (!o.rcHolders && d.hel?.holders?.length) { o.top10Pct = d.hel.holders.slice(0, 10).reduce((a, h) => a + h.pct, 0); o.top10Src = 'Helius getTokenLargestAccounts (may include LP/curve)'; o.top10MayIncludeLp = true; }
   const oh = d.ohlcv; if (Array.isArray(oh) && oh.length > 5 && CUR.tf === 'minute:1') { const c = oh.slice(0, 30); const bodies = c.map(k => k[4] - k[1]); const maxH = Math.max(...c.map(k => k[2])); o.verticalCandle = bodies[0] > 0 && bodies[0] >= Math.max(...bodies) && c[0][4] >= maxH * 0.95 && bodies[0] > Math.abs(bodies[1] || 0) * 3; }
   applyLook(o); return finalize(o);
 }
@@ -362,6 +369,7 @@ function renderCoin() {
       <table class="small" style="margin-top:4px"><tbody>${parts}</tbody></table></div>
     <div class="box"><h4>Rule checklist</h4><table class="small"><tbody>${checks}</tbody></table></div>
     <div class="box"><h4>Holders / bubble map <span class="mu small">RugCheck ${st('rc')}</span></h4><div id="bubbles">${bubbles(o)}</div></div>
+    ${typeof extrasCoinBox === 'function' ? extrasCoinBox(o) : ''}
     <div class="box"><h4>Security sources</h4><div class="small wrap">
       RugCheck: ${d.rc ? 'score ' + (o.rcScore ?? '?') + (o.rugged ? ' <b class="dn">RUGGED</b>' : '') + ' &middot; risks: ' + ((o.rcRisks || []).map(r => `<span class="pill ${r.level === 'danger' ? 'FAIL' : 'TAG'}" title="${esc(r.description)}">${esc(r.name)}</span>`).join('') || 'none listed') : st('rc') + (d.rc === null ? ' (blocked or failed from this browser)' : '')}<br>
       GoPlus: ${d.gp ? 'ok' : st('gp')} &middot; GeckoTerminal info: ${d.gti ? 'ok, gt_score ' + (o.gtScore != null ? o.gtScore.toFixed(0) : '?') + (o.gtHolders?.top_10 ? ', top10 ' + esc(o.gtHolders.top_10) + '%' : '') : st('gti')} &middot; Solana RPC: ${d.rpc ? 'ok' : st('rpc')} &middot; Jupiter: ${d.jup ? 'ok, tags ' + esc((o.tags || []).join(', ')) : st('jup')} &middot; Authorities from: ${esc(o.authSrc || 'none')}<br>
@@ -371,6 +379,7 @@ function renderCoin() {
 }
 function bubbles(o) {
   const h = o.rcHolders;
+  if (!h && CUR.d.hel?.holders?.length) return '<div class="small">Helius largest token accounts (session key; may include LP/curve; linkage UNVERIFIED):</div><table class="small">' + CUR.d.hel.holders.slice(0, 20).map(x => `<tr><td>${A('https://solscan.io/account/' + (x.owner || x.address), esc(short(x.owner || x.address)))}</td><td class="right">${x.pct.toFixed(2)}%</td></tr>`).join('') + '</table>';
   if (!h) return CUR.d.rc === undefined ? '<span class="mu">loading</span>' : UV + (o.gtHolders?.top_10 ? ` <span class="small">GeckoTerminal distribution: top10 ${esc(o.gtHolders.top_10)}%, 11-30 ${esc(o.gtHolders['11_30'])}%, 31-50 ${esc(o.gtHolders['31_50'])}%, rest ${esc(o.gtHolders.rest)}% (may include LP/curve)</span>` : '');
   if (!h.length) return UV;
   const W = 340; let cx = 6, cy = 6, rowH = 0; const out = [];
@@ -483,8 +492,8 @@ function renderStatus() {
 }
 
 /* ---------- routing, events, keyboard ---------- */
-const PAGES = ['pulse', 'stonk', 'coin', 'watch', 'paper', 'playbook', 'settings'];
-function show(p) { $$('section.page').forEach(s => s.classList.toggle('on', s.id === 'p-' + p)); $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.p === p)); if (p === 'stonk' && !STONK.length) loadStonk(); if (p === 'watch') renderWatch(); if (p === 'paper') renderPaper(); if (p === 'settings') { renderSettings(); renderStatus(); } }
+const PAGES = ['pulse', 'stonk', 'coin', 'watch', 'paper', 'playbook', 'settings', 'wallets'];
+function show(p) { $$('section.page').forEach(s => s.classList.toggle('on', s.id === 'p-' + p)); $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.p === p)); if (p === 'stonk' && !STONK.length) loadStonk(); if (p === 'watch') renderWatch(); if (p === 'paper') renderPaper(); if (p === 'settings') { renderSettings(); renderStatus(); } if (p === 'wallets' && typeof renderWallets === 'function') renderWallets(); }
 function route() { const [p, arg] = location.hash.slice(1).split('/'); if (p === 'coin' && arg) { if (CUR?.mint !== arg) openCoin(arg); else show('coin'); } else show(PAGES.includes(p) ? p : 'pulse'); }
 let SOLPX = null;
 async function loadSolPx() { const v = await safe(getJSON('https://lite-api.jup.ag/price/v3?ids=' + SOL, 300000)); SOLPX = num(v?.[SOL]?.usdPrice); }
@@ -514,7 +523,7 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
   if (e.key === '/') { e.preventDefault(); $('#ca').focus(); $('#ca').select(); }
-  else if (/^[1-7]$/.test(e.key)) location.hash = '#' + PAGES[+e.key - 1];
+  else if (/^[1-8]$/.test(e.key)) location.hash = '#' + PAGES[+e.key - 1];
   else if (k === 'r') { const p = location.hash.slice(1).split('/')[0] || 'pulse'; if (p === 'stonk') loadStonk(); else if (p === 'coin' && CUR) { const mm = CUR.mint; CUR = null; cache.clear(); openCoin(mm); } else if (p === 'watch') checkWatch(true); else loadPulse(); }
   else if (k === 'p' && CUR && $('#p-coin').classList.contains('on')) pin(CUR.mint);
   else if (k === 'j' && CUR && $('#p-coin').classList.contains('on')) prefillPaper(CUR.mint);

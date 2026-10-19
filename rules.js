@@ -46,6 +46,14 @@
     else if (c.insidersDetected === false || c.sameBlockClusters === 0) add('insider', 'No insider / bundle network', 'PASS', 'None detected in data checked (shared-funder trace UNVERIFIED)', c.insiderSrc || 'GeckoTerminal trades');
     else add('insider', 'No insider / bundle network', 'UNVERIFIED', 'Insider / bundle data not returned', '');
 
+    // Funder trace (session Helius key, one coin, on button press): shared first funder of early buyers = one entity
+    if (isNum(c.funderMaxGroup)) {
+      const n = c.funderMaxGroup, t = c.funderTraced || 0;
+      if (n >= 3) add('funder', 'Early buyers not funded by one wallet', 'FAIL', n + ' of ' + t + ' traced early buyers share one first funder (one entity)', 'Funder trace (Helius)');
+      else if (n === 2) add('funder', 'Early buyers not funded by one wallet', 'TAG', '2 of ' + t + ' traced early buyers share a funder', 'Funder trace (Helius)');
+      else add('funder', 'Early buyers not funded by one wallet', 'PASS', 'No shared funder among ' + t + ' traced buyers (exchange-funded wallets can look unlinked)', 'Funder trace (Helius)');
+    } else add('funder', 'Early buyers not funded by one wallet', 'UNVERIFIED', 'Funder trace not run (needs a session Helius key, coin page button)', '');
+
     if (c.devSold === true) add('dev', 'Dev has not sold', 'FAIL', 'Dev wallet sold in recent trades', 'GeckoTerminal trades');
     else if (c.devSold === false) add('dev', 'Dev has not sold', 'PASS', 'No dev sell in the trades checked', 'GeckoTerminal trades');
     else add('dev', 'Dev has not sold', 'UNVERIFIED', 'Dev trades not checked', '');
@@ -129,6 +137,7 @@
     if (isNum(c.top10Pct) && c.top10Pct > cfg.top10Max) N('Top-10 concentration', c.linked ? -25 : -10, pct(c.top10Pct) + (c.linked ? ' linked' : ''));
     if (c.insidersDetected === true) N('Insiders detected', -20, c.insiderDetail || 'RugCheck');
     if (c.devSold === true) N('Dev sold', -25, 'dev wallet sold');
+    if (isNum(c.funderMaxGroup) && c.funderMaxGroup >= 2) N('Linked early buyers (shared funder)', -Math.min(25, (c.funderMaxGroup - 1) * 8), c.funderMaxGroup + ' buyers share a funder');
     if (isNum(c.organicScore) && c.organicScore < 20 && ub != null && ub >= 10) N('Low organic score', -10, 'Jupiter organic ' + c.organicScore.toFixed(0) + '/100 with many "buyers"');
     let score = parts.reduce((s, p) => s + p.pts, 0) + pen.reduce((s, p) => s + p.pts, 0);
     if (c.mintAuth === true || c.freezeAuth === true || c.honeypot === true) { score = 0; N('Authority / honeypot', 0, 'score forced to 0'); }

@@ -3,7 +3,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sol Desk Terminal - research only</title>
 <meta name="description" content="Research-only Solana meme-coin terminal. No wallet connect. Not financial advice.">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src * data:; connect-src https://api.dexscreener.com https://api.geckoterminal.com https://api.rugcheck.xyz https://api.gopluslabs.io https://lite-api.jup.ag https://api.mainnet-beta.solana.com https://www.stonkfun.xyz; frame-src https://dexscreener.com; media-src data:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'; img-src * data:; connect-src https://mainnet.helius-rpc.com https://api-mainnet.helius-rpc.com https://data.solanatracker.io https://public-api.birdeye.so https://api.jup.ag https://api.dexscreener.com https://api.geckoterminal.com https://api.rugcheck.xyz https://api.gopluslabs.io https://lite-api.jup.ag https://api.mainnet-beta.solana.com https://www.stonkfun.xyz; frame-src https://dexscreener.com; media-src data:">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%223%22 fill=%22%2322c55e%22/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 </head><body>
@@ -18,6 +18,7 @@
     <a href="#paper" data-p="paper">Paper <span class="kbd">5</span></a>
     <a href="#playbook" data-p="playbook">Playbook <span class="kbd">6</span></a>
     <a href="#settings" data-p="settings">Settings <span class="kbd">7</span></a>
+    <a href="#wallets" data-p="wallets">Wallet Scout <span class="kbd">8</span></a>
   </nav>
   <input id="ca" placeholder="Paste a mint / CA and press Enter  ( / to focus, Ctrl+V anywhere )" autocomplete="off" spellcheck="false">
   <button id="go" class="pri">Look up</button>
@@ -69,7 +70,7 @@
 
 <section class="page" id="p-watch">
   <div class="bar"><b>Watchlist + two-look watcher</b><span class="mu">Look 1 when pinned; look 2 is taken automatically 5-15 min later while this tab is open. Retention &ge;85% with buys leading = pass.</span>
-  <button id="wCheck" class="pri">Check now</button><button id="notif">Enable notifications</button><button id="wCharts">Load chart grid</button></div>
+  <button id="wCheck" class="pri">Check now</button><button id="notif">Enable notifications</button><button id="wCharts">Load chart grid</button><button data-csv="watch">Export CSV</button></div>
   <div class="box"><table id="watchT"><thead><tr><th>Coin</th><th>Pinned (UTC)</th><th>Look 1</th><th>Look 2</th><th>Retention</th><th>Buys/Sells 5m</th><th>Status</th><th></th></tr></thead><tbody></tbody></table></div>
   <div class="chartgrid" id="grid"></div>
 </section>
@@ -83,7 +84,7 @@
     <label>size SOL <input id="jSize" type="number" step="0.01" value="0.02" style="width:70px"></label>
     <label>exp. slippage % <input id="jSlip" type="number" step="0.1" style="width:60px"></label>
     <input id="jNote" placeholder="thesis / invalidation" style="width:240px">
-    <button id="jAdd" class="pri">Add paper entry</button>
+    <button id="jAdd" class="pri">Add paper entry</button><button data-csv="paper">Export CSV</button>
   </div>
   <table id="paperT"><thead><tr><th>Opened (UTC)</th><th>Coin</th><th>Entry $</th><th>Size SOL</th><th>Exp slip</th><th>Exit $</th><th>P&amp;L SOL</th><th>P&amp;L %</th><th>Note</th><th></th></tr></thead><tbody></tbody></table>
   <p class="mu small">P&amp;L subtracts the expected slippage on entry and exit (estimate). Desk risk: max 1 open position, stop after 2 losing trades in a day, tight slippage (wide slippage gets sandwiched on pump.fun).</p></div>
@@ -91,7 +92,24 @@
 
 <section class="page play" id="p-playbook"></section>
 
+<section class="page" id="p-wallets">
+  <div class="bar"><b>WALLET SCOUT</b><input id="wAddr" placeholder="public Solana wallet address" style="width:330px" autocomplete="off" spellcheck="false"><input id="wLabel" placeholder="label" style="width:120px"><button id="wAdd" class="pri">Add</button><button id="wScanAll">Scan all</button><button id="wTrace">Trace funders of these wallets (Helius)</button><button data-csv="wallets">Export CSV</button><span id="wSrc" class="mu small"></span></div>
+  <p class="mu small">Watch-only research. Public addresses are stored in this browser only. Without a session Helius key the page tries the keyless Solana public RPC (last ~10 transactions, may be rate-limited or 403); with a key it uses Helius Enhanced Transactions (last 100). Pattern labels (sniper / bundle / holder) need 20+ closed trades, otherwise UNVERIFIED. Never copy a sniper: their edge is landing speed and it is already gone. Smart money is a plus at most, never a reason to pass.</p>
+  <div class="box"><table id="walletT"><thead><tr><th>Wallet</th><th>Last activity</th><th>Txs read</th><th>Buys / Sells</th><th>SOL in / out</th><th>Closed trades</th><th>Realized SOL (approx)</th><th>Median hold</th><th>Pattern</th><th>Funder</th><th></th></tr></thead><tbody></tbody></table></div>
+  <div id="walletDetail"></div>
+</section>
+
 <section class="page" id="p-settings">
+  <div class="box"><h4>Optional session keys (memory only)</h4>
+    <div class="wrap" style="font:13px/1.5 system-ui;color:#fbbf24">Use a <b>free</b> API key only. Never enter a seed phrase, private key or wallet password here or anywhere. Keys are held in this tab's memory only: never saved to storage, never put in the page URL, never logged by this site, cleared on reload, and each key is sent only to its own provider (Helius key only to helius-rpc.com, etc.). Note: Helius takes the key as a URL query parameter on its own requests, so the browser's network panel can show it.</div>
+    <div class="bar" style="margin-top:6px">
+      <label>Helius <input id="kHelius" type="password" autocomplete="off" spellcheck="false" placeholder="free key"></label>
+      <label>Jupiter <input id="kJupiter" type="password" autocomplete="off" spellcheck="false" placeholder="optional"></label>
+      <label>Birdeye <input id="kBirdeye" type="password" autocomplete="off" spellcheck="false" placeholder="optional"></label>
+      <label>Solana Tracker <input id="kSt" type="password" autocomplete="off" spellcheck="false" placeholder="optional"></label>
+      <button id="kSet" class="pri">Use for this session</button><button id="kClear">Clear keys</button><span id="kState" class="mu small">no session keys</span>
+    </div>
+    <div class="mu small">Helius enables: funder trace (coin page), holder fallback (getTokenLargestAccounts), Wallet Scout history. Solana Tracker: bundlers second opinion. Birdeye: holders second opinion. Jupiter: keyed api.jup.ag token lookup instead of lite-api.</div></div>
   <div class="box"><h4>Rule thresholds (saved in this browser)</h4><div class="bar" id="cfgBar"></div></div>
   <div class="box"><h4>Smart-money watch wallets (watch-only, UNVERIFIED, never decide a pass, never copy)</h4>
     <textarea id="smw" rows="4" style="width:100%;background:var(--p2);color:var(--tx);border:1px solid var(--ln)"></textarea><button id="smwSave">Save</button></div>
@@ -100,7 +118,7 @@
     <ol><li>Install the free <b>ntfy</b> app (Android / iOS) or open ntfy.sh in a browser.</li><li>Tap <b>+ Subscribe to topic</b>, server <code>ntfy.sh</code>, and enter the private topic name the desk gave you (it is deliberately not published here; anyone who knows it can read the alerts).</li><li>Each alert: ticker + mcap with UTC time, why it passed, the mint on its own line, and buttons for this terminal, DexScreener, RugCheck and Jupiter.</li></ol>
     Alerts are research pings, not trade calls. GitHub disables scheduled workflows after 60 days of repo inactivity; re-enable in the Actions tab.</div></div>
   <div class="box"><h4>Data sources (browser, keyless)</h4><div id="srcT" class="small"></div></div>
-  <div class="box"><h4>Keyboard</h4><div class="small">/ focus CA box &middot; Ctrl+V anywhere pastes a mint and opens it &middot; 1-7 tabs &middot; R refresh &middot; P pin current coin &middot; J paper entry for current coin &middot; Esc blur</div></div>
+  <div class="box"><h4>Keyboard</h4><div class="small">/ focus CA box &middot; Ctrl+V anywhere pastes a mint and opens it &middot; 1-8 tabs &middot; R refresh &middot; P pin current coin &middot; J paper entry for current coin &middot; Esc blur</div></div>
 </section>
 </main>
 <div class="status" id="status"></div>
@@ -108,4 +126,5 @@
 <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js" crossorigin="anonymous"></script>
 <script src="rules.js"></script>
 <script src="app.js"></script>
+<script src="extras.js"></script>
 </body></html>
