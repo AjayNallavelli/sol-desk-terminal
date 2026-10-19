@@ -4,6 +4,7 @@ on:
     - cron: '2-59/5 * * * *'
   workflow_dispatch:
 permissions:
+  actions: write
   contents: write
 concurrency:
   group: alerts
@@ -11,7 +12,7 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -41,3 +42,15 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add state.json && git commit -qm "alert state $(date -u +%FT%TZ)"
           git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" alerts-state
+      - name: Chain next run (self-sustaining loop; cron above stays as backup)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALERTS_LOOP: ${{ vars.ALERTS_LOOP }}
+        run: |
+          if [ "$ALERTS_LOOP" = "off" ]; then echo "ALERTS_LOOP=off: not chaining"; exit 0; fi
+          sleep 270
+          others=$( { gh run list -R "$GITHUB_REPOSITORY" --workflow alerts.yml --status queued --json databaseId -q '.[].databaseId'; gh run list -R "$GITHUB_REPOSITORY" --workflow alerts.yml --status in_progress --json databaseId -q '.[].databaseId'; } | grep -vx "$GITHUB_RUN_ID" | grep -c . || true )
+          if [ "${others:-0}" -gt 0 ]; then echo "another alerts run is already pending/running ($others): not chaining"; exit 0; fi
+          gh workflow run alerts.yml --ref main -R "$GITHUB_REPOSITORY"
+          echo "chained next alerts run"
