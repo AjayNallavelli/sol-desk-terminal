@@ -315,7 +315,9 @@ function buildCur() {
     if (rc.transferFee && isNum(num(rc.transferFee.pct)) && o.transferFeeBps == null) { o.transferFeeBps = num(rc.transferFee.pct) * 100; o.feeSrc = 'RugCheck'; }
   }
   const ta = analyzeTrades(d.trades, o.dev || o.creator); o.ta = ta;
-  if (ta) { o.sameBlockClusters = ta.clusters; o.topBuyerShare = ta.topBuyerShare; o.devSold = (o.dev || o.creator) ? ta.devSold : null; }
+  // Bundle / one-buyer heuristics only mean something on young pools; on mature, busy pools (routers, arb bots) they misfire, so they stay UNVERIFIED there.
+  const young = isNum(o.createdAt) && Date.now() - o.createdAt < 6 * 3600000;
+  if (ta) { if (young) { o.sameBlockClusters = ta.clusters; o.topBuyerShare = ta.topBuyerShare; } else o.bundleNote = 'pool older than 6h: same-block / one-buyer heuristics not applied (UNVERIFIED)'; o.devSold = (o.dev || o.creator) ? ta.devSold : null; }
   const oh = d.ohlcv; if (Array.isArray(oh) && oh.length > 5 && CUR.tf === 'minute:1') { const c = oh.slice(0, 30); const bodies = c.map(k => k[4] - k[1]); const maxH = Math.max(...c.map(k => k[2])); o.verticalCandle = bodies[0] > 0 && bodies[0] >= Math.max(...bodies) && c[0][4] >= maxH * 0.95 && bodies[0] > Math.abs(bodies[1] || 0) * 3; }
   applyLook(o); return finalize(o);
 }
@@ -351,7 +353,7 @@ function renderCoin() {
       ${stat('Socials', soc)}${stat('Exp. slippage', slipNote)}${stat('Size note (min 0.04 SOL, 1% liq)', sizeNote)}${o.peak ? stat('Peak mcap (stonk.fun)', R.fmtUsd(o.peak)) : ''}
     </div></div>
     <div class="box"><h4>Live trades tape <span class="mu small">GeckoTerminal last ${ta ? ta.n : 0} trades, refresh 30s while visible ${d.tradesAt ? '@ ' + utc(d.tradesAt) : ''}</span></h4>
-      ${ta ? `<div class="small">buys ${ta.buys} / sells ${ta.sells} &middot; unique buyers ${ta.uniqBuyers} &middot; last 5m ${ta.b5}B/${ta.s5}S vs prior 5m ${ta.b10}B &middot; same-block clusters <b class="${ta.clusters ? 'dn' : 'up'}">${ta.clusters}</b> &middot; top buyer ${isNum(ta.topBuyerShare) ? (ta.topBuyerShare * 100).toFixed(0) + '%' : UV} of buy vol &middot; dev sold ${ta.devSold == null ? UV : ta.devSold ? '<b class="dn">YES</b>' : 'no'}</div>` : ''}
+      ${ta ? `<div class="small">buys ${ta.buys} / sells ${ta.sells} &middot; unique buyers ${ta.uniqBuyers} &middot; last 5m ${ta.b5}B/${ta.s5}S vs prior 5m ${ta.b10}B &middot; same-block clusters <b class="${ta.clusters ? 'dn' : 'up'}">${ta.clusters}</b> &middot; top buyer ${isNum(ta.topBuyerShare) ? (ta.topBuyerShare * 100).toFixed(0) + '%' : UV} of buy vol &middot; dev sold ${ta.devSold == null ? UV : ta.devSold ? '<b class="dn">YES</b>' : 'no'}${o.bundleNote ? '<br><span class="uv">' + esc(o.bundleNote) + '</span>' : ''}</div>` : ''}
       <div class="tape">${tape ? `<table><thead><tr><th>Time</th><th>Side</th><th>USD</th><th>Wallet</th><th>Block</th><th>Tags</th></tr></thead><tbody>${tape}</tbody></table>` : (d.trades === undefined && d.gtp !== null ? '<span class="mu">loading</span>' : UV)}</div>
       <p class="mu small">Same-block = 3+ different wallets buying in one block (bundle signature). Shared-first-funder trace needs a keyed RPC: UNVERIFIED here. Exchange-funded wallets can look unlinked.</p></div>
   </div><div>
