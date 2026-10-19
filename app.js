@@ -21,7 +21,7 @@ function toast(m) { const t = $('#toast'); t.textContent = m; t.style.display = 
 /* ---------- polite fetch: per-host spacing, caching, in-flight dedupe ---------- */
 const HOSTS = {
   'api.dexscreener.com': { gap: 1100, name: 'DexScreener' },
-  'api.geckoterminal.com': { gap: 2600, name: 'GeckoTerminal' },
+  'api.geckoterminal.com': { gap: 4000, name: 'GeckoTerminal' },
   'lite-api.jup.ag': { gap: 1200, name: 'Jupiter' },
   'api.rugcheck.xyz': { gap: 1500, name: 'RugCheck' },
   'api.gopluslabs.io': { gap: 2500, name: 'GoPlus' },
@@ -47,7 +47,7 @@ async function getJSON(url, ttl = 30000, opt) {
             const v = await r.json(); cache.set(key, { t: Date.now(), v }); mark(host, true); return v;
           } catch (e) {
             // one polite retry for rate limits / transient network errors (a 429 often arrives without CORS headers -> TypeError)
-            if (attempt === 0 && (e.retry || e instanceof TypeError)) { await sleep(6000 + gap); continue; }
+            if (attempt === 0 && (e.retry || e instanceof TypeError)) { await sleep(12000 + gap); continue; }
             mark(host, false, e.name === 'AbortError' ? 'timeout' : (e.message || 'blocked/CORS')); throw e;
           } finally { clearTimeout(to); }
         }
@@ -260,7 +260,7 @@ function openCoin(mint) {
 }
 function poolAddr() { return CUR?.d.gtp?.attributes?.address; }
 function loadTrades() { const p = poolAddr(); if (!p) return; const mint = CUR.mint; getJSON(`https://api.geckoterminal.com/api/v2/networks/solana/pools/${p}/trades`, 25000).then(v => { if (CUR?.mint === mint) { CUR.d.trades = (v?.data || []).map(x => x.attributes); CUR.d.tradesAt = Date.now(); renderCoin(); } }, () => { if (CUR?.mint === mint) { CUR.d.trades = null; renderCoin(); } }); }
-function loadOHLCV() { const p = poolAddr(); if (!p) return; const [tf, ag] = CUR.tf.split(':'); const mint = CUR.mint; getJSON(`https://api.geckoterminal.com/api/v2/networks/solana/pools/${p}/ohlcv/${tf}?aggregate=${ag}&limit=300&currency=usd`, 30000).then(v => { if (CUR?.mint === mint) { CUR.d.ohlcv = v?.data?.attributes?.ohlcv_list || []; renderCoin(); } }, () => { if (CUR?.mint === mint) { CUR.d.ohlcv = null; renderCoin(); } }); }
+function loadOHLCV() { const p = poolAddr(); if (!p) return; const [tf, ag] = CUR.tf.split(':'); const mint = CUR.mint; getJSON(`https://api.geckoterminal.com/api/v2/networks/solana/pools/${p}/ohlcv/${tf}?aggregate=${ag}&limit=300&currency=usd`, 30000).then(v => { if (CUR?.mint === mint) { CUR.d.ohlcv = v?.data?.attributes?.ohlcv_list || []; renderCoin(); } }, () => { if (CUR?.mint === mint) { CUR.d.ohlcv = null; CUR.embed = true; renderCoin(); } }); } // GeckoTerminal candles failed (often a 429): fall back to the DexScreener embed
 function analyzeTrades(tr, dev) {
   if (!Array.isArray(tr) || !tr.length) return null;
   const buys = tr.filter(t => t.kind === 'buy'), sells = tr.filter(t => t.kind === 'sell');
