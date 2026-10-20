@@ -52,5 +52,8 @@ jobs:
           sleep 270
           others=$( { gh run list -R "$GITHUB_REPOSITORY" --workflow alerts.yml --status queued --json databaseId -q '.[].databaseId'; gh run list -R "$GITHUB_REPOSITORY" --workflow alerts.yml --status in_progress --json databaseId -q '.[].databaseId'; } | grep -vx "$GITHUB_RUN_ID" | grep -c . || true )
           if [ "${others:-0}" -gt 0 ]; then echo "another alerts run is already pending/running ($others): not chaining"; exit 0; fi
-          gh workflow run alerts.yml --ref main -R "$GITHUB_REPOSITORY"
-          echo "chained next alerts run"
+          for i in 1 2 3 4 5; do
+            if gh workflow run alerts.yml --ref main -R "$GITHUB_REPOSITORY"; then echo "chained next alerts run"; exit 0; fi
+            echo "dispatch attempt $i failed; retrying in 15s"; sleep 15
+          done
+          echo "::warning::could not chain next run after 5 attempts; cron backup will restart the loop"
