@@ -48,3 +48,4 @@ table{width:100%;border-collapse:collapse}th,td{padding:3px 5px;border-bottom:1p
 #toast{position:fixed;right:10px;bottom:30px;background:#0b3a52;border:1px solid #0e5a80;padding:8px 10px;border-radius:6px;display:none;z-index:9}
 .small{font-size:10px}.right{text-align:right}.wrap{white-space:normal}
 @media(max-width:900px){.cols{grid-template-columns:1fr}.col{max-height:none}.grid2{grid-template-columns:1fr}#ca{min-width:140px}}
+.links.tools{margin-top:4px}.links.tools a{font-size:12px}.wlinks a{margin-right:4px}

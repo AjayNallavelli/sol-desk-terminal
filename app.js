@@ -290,6 +290,7 @@ function buildCur() {
     o.dev = o.dev || gi.developer_address; if (num(gi.holders?.count) != null && o.holders == null) o.holders = num(gi.holders.count);
     o.gtHolders = gi.holders?.distribution_percentage; o.gtScore = num(gi.gt_score);
     const lp = gi.launchpad_details; if (lp) { if (isNum(num(lp.graduation_percentage))) o.gradPct = num(lp.graduation_percentage); o.onCurve = !lp.completed; o.curveSrc = 'GeckoTerminal launchpad'; }
+    if (gi.twitter_handle && !o.xHandle) o.xHandle = String(gi.twitter_handle);
     if (!o.socials && (gi.twitter_handle || gi.telegram_handle || (gi.websites || []).length)) { o.socials = true; o.socialSrc = 'GeckoTerminal'; }
   }
   const g = d.gp; if (g) {
@@ -329,12 +330,44 @@ function buildCur() {
   applyLook(o); return finalize(o);
 }
 function stat(k, v) { return `<div><span>${esc(k)}</span>${v}</div>`; }
+// "Check in other tools": per-token URL patterns checked by HTTP status on 2026-10-19. "(homepage)" = the tool has no per-token page.
+function xHandleOf(o) {
+  const ok = h => (h = String(h || '').replace(/^@/, '').trim(), /^[A-Za-z0-9_]{1,15}$/.test(h) ? h : null);
+  if (ok(o.xHandle)) return ok(o.xHandle);
+  for (const [t, u] of (o.socialList || [])) { const mm = /^https?:\/\/(?:www\.|mobile\.)?(?:x|twitter)\.com\/([A-Za-z0-9_]{1,15})\/?(?:[?#].*)?$/i.exec(String(u || '')); if (mm && !/^(i|home|search|intent|share)$/i.test(mm[1])) return mm[1]; }
+  return null;
+}
+const TOOL_LINKS = [
+  ['RugCheck', m => 'https://rugcheck.xyz/tokens/' + m],
+  ['Trench.bot', m => 'https://trench.bot/bundles/' + m + '?all=true'],
+  ['Bubblemaps', m => 'https://v2.bubblemaps.io/map?address=' + m + '&chain=solana'],
+  ['InsightX', m => 'https://app.insightx.network/bubblemaps/solana/' + m],
+  ['GMGN', m => 'https://gmgn.ai/sol/token/' + m],
+  ['Solscan', m => 'https://solscan.io/token/' + m],
+  ['Kolscan (homepage)', () => 'https://kolscan.io/'],
+  ['TweetScout', (m, x) => x ? 'https://app.sorsa.io/profile/' + x : 'https://app.tweetscout.io/'],
+  ['DexScreener', m => 'https://dexscreener.com/solana/' + m],
+  ['Birdeye', m => 'https://birdeye.so/solana/token/' + m],
+  ['GeckoTerminal', m => 'https://www.geckoterminal.com/solana/tokens/' + m],
+  ['HolderScan', m => 'https://holderscan.com/token/' + m],
+  ['Solsniffer', m => 'https://www.solsniffer.com/scanner/' + m],
+  ['Cielo (homepage)', () => 'https://app.cielo.finance/'],
+  ['Fomoscan Pro (homepage)', () => 'https://terminal.fomoscan.sh/'],
+];
+function toolsRow(m, x) {
+  if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(m)) return '';
+  return '<div class="links tools" id="toolsRow"><span class="mu small">Check in other tools:</span> ' + TOOL_LINKS.map(([n, f]) => {
+    const label = n === 'TweetScout' ? (x ? 'TweetScout @' + x : 'TweetScout (homepage, no X handle)') : n;
+    return `<a href="${esc(f(m, x))}" target="_blank" rel="noopener noreferrer" data-tool="${esc(n.replace(/ \(homepage\)/, ''))}">${esc(label)} &#8599;</a>`;
+  }).join('') + '</div>';
+}
 const A = (href, txt, cls) => `<a ${cls ? 'class="' + cls + '"' : ''} href="${esc(href)}" target="_blank" rel="noopener noreferrer">${txt}</a>`;
 function renderCoin() {
   if (!CUR) return; const o = buildCur(); CUR.o = o; const ev = o.ev, d = CUR.d, m = o.mint;
   const st = k => d[k] === undefined ? '<span class="mu">loading</span>' : d[k] === null ? UV : '';
   const vcls = ev.label === 'REJECTED' ? 'v-REJECTED' : ev.label === 'EARLY UNVERIFIED' ? 'v-EARLY' : ev.label === 'EARLY WATCH' ? 'v-WATCH' : 'v-CONF';
   const links = `<div class="links"><a class="jup" href="https://jup.ag/swap/SOL-${esc(m)}" target="_blank" rel="noopener noreferrer" data-jup="1">Open on Jupiter &#8599; (you sign in Phantom)</a>${A('https://dexscreener.com/solana/' + m, 'DexScreener')}${A('https://pump.fun/coin/' + m, 'pump.fun')}${A('https://solscan.io/token/' + m, 'Solscan')}${A('https://rugcheck.xyz/tokens/' + m, 'RugCheck')}${A('https://gmgn.ai/sol/token/' + m, 'GMGN')}${A('https://axiom.trade/meme/' + (o.pool || m), 'Axiom')}${o.stonk ? A('https://www.stonkfun.xyz/token/' + m, 'stonk.fun') : ''}</div>`;
+  const tools = toolsRow(m, xHandleOf(o));
   const soc = (o.socialList || []).slice(0, 6).map(([t, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer nofollow">${esc(t)}</a>`).join(' ') || (o.socials === false ? 'none listed' : UV);
   const b5 = isNum(o.buys5m) ? `<span class="${o.buys5m > (o.sells5m || 0) ? 'up' : 'dn'}">${o.buys5m} / ${o.sells5m ?? '?'}</span>` : UV;
   const b1 = isNum(o.buys1h) ? `${o.buys1h} / ${o.sells1h ?? '?'}` : UV;
@@ -349,7 +382,7 @@ function renderCoin() {
   <div class="box"><h4><span>${o.img ? `<img src="${esc(o.img)}" style="width:22px;height:22px;border-radius:4px;vertical-align:middle"> ` : ''}<b style="font-size:15px">${esc(o.symbol || '?')}</b> <span class="mu">${esc(o.name || '')}</span> ${o.quote ? '<span class="pill">quote ' + esc(o.quote) + '</span>' : ''} <span class="pill">${esc(o.dex || o.launchpad || 'venue UNVERIFIED')}</span></span>
     <span><button data-pin="${esc(m)}">Pin (two-look) <span class="kbd">P</span></button> <button data-paper="${esc(m)}">Paper entry <span class="kbd">J</span></button></span></h4>
     <div class="ca"><code id="caText">${esc(m)}</code><button data-copy="${esc(m)}">Copy CA</button></div>
-    ${links}${o.conflict ? '<div class="TAG small">' + esc(o.conflict) + '</div>' : ''}</div>
+    ${links}${tools}${o.conflict ? '<div class="TAG small">' + esc(o.conflict) + '</div>' : ''}</div>
   <div class="grid2"><div>
     <div class="box"><h4>Chart <span><button data-tf="minute:1">1m</button> <button data-tf="minute:5">5m</button> <button data-tf="minute:15">15m</button> <button data-tf="hour:1">1h</button> <button data-embed="1">DexScreener embed</button></span></h4><div id="chart">${d.gtp === null ? UV + ' (no GeckoTerminal pool)' : '<span class="mu">loading candles</span>'}</div></div>
     <div class="box"><h4>Market <span class="mu small">${esc([...o.src].join(' + '))} @ ${utc(o.at)}</span></h4><div class="kv">
